@@ -216,15 +216,32 @@ app.post('/clients', async (req, res) => {
   }
 })
 
-//get client
+//get specific client
 app.get('/clients/:id', async (req, res) => {
   //const users = req.body;
   try {
     console.log(req.params.id)
-    const PAGE_SIZE = 10;
+    const PAGE_SIZE = 13;
     const page = parseInt(req.query.page || "0");
     const total = await Client.countDocuments({});
     const clients = await Client.find({ users: req.params.id })
+      .limit(PAGE_SIZE)
+      .skip(PAGE_SIZE * page);
+    res.status(200).json({
+      totalPages: Math.ceil(total / PAGE_SIZE),
+      clients,
+    });
+  } catch (error) {
+    console.log(error);
+  }
+})
+//get all client
+app.get('/allclients', async (req, res) => {
+  try {
+    const PAGE_SIZE = 10;
+    const page = parseInt(req.query.page || "0");
+    const total = await Client.countDocuments({});
+    const clients = await Client.find({})
       .limit(PAGE_SIZE)
       .skip(PAGE_SIZE * page);
     res.status(200).json({
@@ -296,14 +313,31 @@ app.post('/bookings/', async (req, res) => {
     console.log(error);
   }
 })
-//get bookings
+//get secific bookings
 app.get('/bookings/:id', async (req, res) => {
   try {
     console.log(req.params.id)
-    const PAGE_SIZE = 10;
+    const PAGE_SIZE = 11;
     const page = parseInt(req.query.page || "0");
     const total = await Booking.countDocuments({});
     const bookings = await Booking.find({ clientsId: req.params.id }).populate('clientsId')
+      .limit(PAGE_SIZE)
+      .skip(PAGE_SIZE * page);
+    res.status(200).json({
+      totalPages: Math.ceil(total / PAGE_SIZE),
+      bookings,
+    });
+  } catch (error) {
+    console.log(error);
+  }
+})
+//get all bookings
+app.get('/allbookings', async (req, res) => {
+  try {
+    const PAGE_SIZE = 10;
+    const page = parseInt(req.query.page || "0");
+    const total = await Booking.countDocuments({});
+    const bookings = await Booking.find({}).populate('clientsId')
       .limit(PAGE_SIZE)
       .skip(PAGE_SIZE * page);
     res.status(200).json({
