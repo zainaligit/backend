@@ -4,6 +4,9 @@ const cors = require('cors');
 const cookieParser = require("cookie-parser");
 const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken');
+const Speakeasy = require("speakeasy");
+const qrcode = require('qrcode')
+const twofactor = require("node-2fa");
 
 
 const app = express();
@@ -221,7 +224,7 @@ app.get('/clients/:id', async (req, res) => {
   //const users = req.body;
   try {
     console.log(req.params.id)
-    const PAGE_SIZE = 13;
+    const PAGE_SIZE = 10;
     const page = parseInt(req.query.page || "0");
     const total = await Client.countDocuments({});
     const clients = await Client.find({ users: req.params.id })
@@ -317,7 +320,7 @@ app.post('/bookings/', async (req, res) => {
 app.get('/bookings/:id', async (req, res) => {
   try {
     console.log(req.params.id)
-    const PAGE_SIZE = 11;
+    const PAGE_SIZE = 10;
     const page = parseInt(req.query.page || "0");
     const total = await Booking.countDocuments({});
     const bookings = await Booking.find({ clientsId: req.params.id }).populate('clientsId')
@@ -345,7 +348,7 @@ app.get('/allbookings', async (req, res) => {
       bookings,
     });
   } catch (error) {
-    console.log(error);
+    console.log(error)
   }
 })
 //delete bookingData
@@ -452,11 +455,6 @@ app.post('/login', async (req, res) => {
   }
 })
 
-//user logout
-app.get("/logout", (req, res) => {
-
-})
-
 //get users from database
 app.get('/users', async (req, res) => {
   try {
@@ -488,65 +486,37 @@ app.get('/clients-bookings/:id', function (req, res) {
     }
   }).populate('clientsId');
 });
-//register
-/*using Promises
-app.post('/register',(req,res)=>{
-  const {name,age} = req.body;
 
-  if(!name || !age){
-    return res.status(422).json({error: 'fill the fields properly'});//show error
-  }
-//left side wala database ka of right side wala server ka name attribute ha
-    User.findOne({name:name})
-    .then((userExist) =>{
-      if(userExist){
-        return res.status(422).json({error: 'Name already exists'});
-      }
-      const user = new User({name,age});//creating a document
-      user.save().then(()=>{
-        res.status(201).json({message:'user created succusefully'});
-      }).catch((error) => res.status(500).json({message:'registeration failed'}));
-    }).catch(error=>{console.log(error)});
-  
-  //console.log(name);
-  //console.log(age);
- // res.json({message : req.body});
-})
-*/
-
-//using async await
-//user registr test
-/*
-app.post('/register', async (req, res) => {
-  const { name, age } = req.body;
-
-  if (!name || !age) {
-    return res.status(422).json({ error: 'fill the fields properly' });//show error
-  }
-
+//Two Step Authentication
+app.get('/otp', async (req, res) => {
   try {
-    const userExist = await User.findOne({ name: name })//left side wala database ka of right side wala server ka name attribute ha
-    if (userExist) {
-      return res.status(422).json({ error: 'Name already exists' });
-    }
-    const user = new User({ name, age });//creating a document
-
-    const userRegister = await user.save();
-
-    if (userRegister) {
-      res.status(201).json({ message: 'user registered succusefully' });
-    } else {
-      res.status(500).json({ message: 'registeration failed' });
-    }
-
+    const secret = Speakeasy.generateSecret({name:'SecretKey'});
+    const qr = await qrcode.toDataURL(secret.otpauth_url)
+    //console.log(qr)
+    res.json({
+      secret: secret.base32,
+      qrcode: qr,
+    })
   } catch (error) {
-    console.log(error);
+    console.log(error)
+    res.status(500).json({ message: 'Error generating secret key' })
   }
-  //console.log(name);
-  //console.log(age);
-  // res.json({message : req.body});
 })
-*/
+
+app.post('/verifysecret', async (req, res) => {
+  const {secretKey,token} = req.body
+  const varified = Speakeasy.totp.verify({
+    secret: secretKey,
+    encoding: 'base32',
+    token: token
+  })
+  if (varified) {
+    res.json({message: 'otp verified' })
+  }else{
+    res.json({error: 'invalid otp'})
+  }
+})
+
 
 // Listening to the port
 app.listen(5000, () => {
