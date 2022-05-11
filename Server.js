@@ -138,6 +138,14 @@ const bookingSchema = new mongoose.Schema({
   },
   clientsId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' }
 })
+//otp verification
+const verificationSchema = new mongoose.Schema({
+  secretKey: {
+    type: String,
+    required: true
+  },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+})
 
 //generating JWT
 /*
@@ -157,6 +165,7 @@ userSchema.methods.generateAuthToken = async function () {
 const User = new mongoose.model('User', userSchema);
 const Client = new mongoose.model('Client', clientSchema);
 const Booking = new mongoose.model('Booking', bookingSchema);
+const Verification = new mongoose.model('Verification', verificationSchema);
 
 //Middleware functions are functions that have access to the request object ( req ), the response object ( res ), and the next function in the application's request-response cycle. The next function is a function in the Express router which, when invoked, executes the middleware succeeding the current middleware
 //basically y chek kerta ha k ager user login ha to usko homepage dikha do otherwise login page py redirect kerdo
@@ -490,7 +499,7 @@ app.get('/clients-bookings/:id', function (req, res) {
 //Two Step Authentication
 app.get('/otp', async (req, res) => {
   try {
-    const secret = Speakeasy.generateSecret({name:'SecretKey'});
+    const secret = Speakeasy.generateSecret({ name: 'SecretKey' });
     const qr = await qrcode.toDataURL(secret.otpauth_url)
     //console.log(qr)
     res.json({
@@ -504,19 +513,58 @@ app.get('/otp', async (req, res) => {
 })
 
 app.post('/verifysecret', async (req, res) => {
-  const {secretKey,token} = req.body
+  try {
+    const { secretKey, token, userId } = req.body
+
+    const varified = Speakeasy.totp.verify({
+      secret: secretKey,
+      encoding: 'base32',
+      token: token
+    })
+
+    if (varified) {
+      res.json({ message: 'otp verified' })
+    } else {
+      res.json({ error: 'invalid otp' })
+    }
+
+    await Verification.findOne({ userId: userId });//left side wala database ka of right side wala server ka name attribute ha
+
+    const verification = new Verification({ secretKey, userId });//saving secret against logged in user
+    await verification.save();
+    res.status(201).json({ message: 'Verification Added Succusefully' });
+
+  } catch (error) {
+    console.log(error)
+  }
+})
+
+app.post('/verifyformsotp', (req, res) => {
+  const { secretKey, token } = req.body
   const varified = Speakeasy.totp.verify({
     secret: secretKey,
     encoding: 'base32',
     token: token
   })
   if (varified) {
-    res.json({message: 'otp verified' })
-  }else{
-    res.json({error: 'invalid otp'})
+    res.json({ message: 'otp verified' })
+  } else {
+    res.json({ error: 'invalid otp' })
   }
 })
 
+app.get('/otpfromdb/:id', async (req, res) => {
+  try {
+    //console.log(req.params.id)
+    const secret = await Verification.findOne({ userId: req.params.id });//left side wala database ka of right side wala server ka name attribute ha
+    //console.log(secret.secretKey)
+    res.json({
+      secret: secret.secretKey,
+    })
+  } catch (error) {
+    console.log(error);
+  }
+})
 
 // Listening to the port
 app.listen(5000, () => {
