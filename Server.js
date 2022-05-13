@@ -144,7 +144,7 @@ const verificationSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', unique: true }
 })
 
 //generating JWT
@@ -532,8 +532,6 @@ app.post('/verifysecret', async (req, res) => {
 
     const verification = new Verification({ secretKey, userId });//saving secret against logged in user
     await verification.save();
-    res.status(201).json({ message: 'Verification Added Succusefully' });
-
   } catch (error) {
     console.log(error)
   }
@@ -563,6 +561,15 @@ app.get('/otpfromdb/:id', async (req, res) => {
     })
   } catch (error) {
     console.log(error);
+  }
+})
+
+//del twoFa
+app.delete('/deltwoFa/:id', async (req, res) => {
+  try {
+    await Verification.deleteOne({ id: req.params.id });
+  } catch (error) {
+    console.log(error)
   }
 })
 
